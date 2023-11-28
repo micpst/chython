@@ -732,9 +732,9 @@ class MoleculeContainer(MoleculeStereo, Graph[Element, Bond], MoleculeIsomorphis
 
             Big endian bytes order
             8 bit - 0x03 (format specification version)
-            Atom block 3 bytes (repeated):
+            Atom block 4 bytes (repeated):
             1 bit - atom entrance flag (always 1)
-            7 bit - atomic number (<=118)
+            15 bit - atomic number (<=32767)
             3 bit - hydrogens (0-7). Note: 7 == None
             4 bit - charge (charge + 4. possible range -4 - 4)
             1 bit - radical state
@@ -877,7 +877,7 @@ class MoleculeContainer(MoleculeStereo, Graph[Element, Bond], MoleculeIsomorphis
             seen[n] = i
             env = bonds[n]
 
-            data.append((0x80 | atoms[n].atomic_number).to_bytes(1, 'big'))
+            data.append((0x8000 | atoms[n].atomic_number).to_bytes(2, 'big'))
 
             # 3 bit - hydrogens (0-6, None) | 4 bit - charge | 1 bit - radical
             hcr = (charges[n] + 4) << 1 | radicals[n]
