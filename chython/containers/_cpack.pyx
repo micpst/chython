@@ -26,9 +26,9 @@ from chython.containers.bonds import Bond
 #
 # Big endian bytes order
 # 8 bit - 0x03 (format specification version)
-# Atom block 3 bytes (repeated):
+# Atom block 4 bytes (repeated):
 # 1 bit - atom entrance flag (always 1)
-# 7 bit - atomic number (<=118)
+# 15 bit - atomic number (<=32767)
 # 3 bit - hydrogens (0-7). Note: 7 == None
 # 4 bit - charge (charge + 4. possible range -4 - 4)
 # 1 bit - radical state
@@ -51,8 +51,8 @@ from chython.containers.bonds import Bond
 @cython.wraparound(False)
 def unpack(const unsigned char[::1] data not None):
     cdef char *charges
-    cdef unsigned char *atoms, *hydrogens, *radicals, *is_chiral, *neighbors, **orders, *seen
-    cdef unsigned short **connections, *ct_stereo
+    cdef unsigned char *hydrogens, *radicals, *is_chiral, *neighbors, **orders, *seen
+    cdef unsigned short **connections, *ct_stereo, *atoms
     cdef bint *stereo_sign, *ct_sign
 
     cdef unsigned char a, b, i
@@ -66,7 +66,7 @@ def unpack(const unsigned char[::1] data not None):
 
     # allocate memory
     size = len(data)
-    atoms = <unsigned char*> PyMem_Malloc(size / 3 * sizeof(unsigned char))
+    atoms = <unsigned short*> PyMem_Malloc(size / 3 * sizeof(unsigned short))
     charges = <char*> PyMem_Malloc(size / 3 * sizeof(char))
     radicals = <unsigned char*> PyMem_Malloc(size / 3 * sizeof(unsigned char))
     hydrogens = <unsigned char*> PyMem_Malloc(size / 3 * sizeof(unsigned char))
@@ -89,14 +89,16 @@ def unpack(const unsigned char[::1] data not None):
         a = data[shift]
         if a & 0x80 == 0:  # end of pack
             break
-        atoms[n] = a & 0x7f
 
-        a = data[shift + 1]
+        b = data[shift + 1]
+        atoms[n] = ((a & 0x7f) << 8) | b
+
+        a = data[shift + 2]
         hydrogens[n] = a >> 5
         charges[n] = ((a >> 1) & 0x0f) - 4
         radicals[n] = a & 0x01
 
-        a = data[shift + 2]
+        a = data[shift + 3]
         bond_shift = a & 0x0f
         b = a >> 4
         if b == 0b0011:
@@ -108,7 +110,7 @@ def unpack(const unsigned char[::1] data not None):
         else:
             is_chiral[n] = 0
 
-        shift += 3
+        shift += 4
         neighbors[n] = 0
         for i in range(bond_shift):
             a, b = data[shift], data[shift + 1]
