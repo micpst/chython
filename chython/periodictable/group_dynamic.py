@@ -60,3 +60,5 @@ class FoldedGroup(Element):
     @property
     def _valences_exceptions(self) -> Tuple:
         return ()
+
+__all__ = ['FoldedGroup']
