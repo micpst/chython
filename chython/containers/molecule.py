@@ -830,6 +830,7 @@ class MoleculeContainer(MoleculeStereo, Graph[Element, Bond], MoleculeIsomorphis
 
         for n, a, i in zip(mapping, atom_numbers, isotopes):
             atoms[n] = object.__new__(Element.from_atomic_number(a))
+            # we have to set the atomic number explicitly for dynamic folded group
             if isinstance(atoms[n], FoldedGroup):
                 atoms[n]._number = a
             atoms[n]._Core__isotope = i
