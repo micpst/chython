@@ -226,10 +226,7 @@ class Element(Core, ABC):
         except KeyError:
             elements = {x.atomic_number.fget(None): x for x in Element.__subclasses__()}
             cls.__class_cache__['elements'] = elements
-        try:
-            return elements[number]
-        except KeyError:
-            raise ValueError(f'Element with number "{number}" not found')
+        return elements[number] if number in elements else elements[None]
 
     @classmethod
     def from_atom(cls, atom: 'Element') -> 'Element':

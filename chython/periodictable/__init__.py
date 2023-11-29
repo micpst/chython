@@ -18,6 +18,7 @@
 #
 from abc import ABCMeta
 from .element import *
+from .folded import *
 from .groups import *
 from .periods import *
 from .groupI import *

@@ -39,7 +39,7 @@ from ..algorithms.stereo import MoleculeStereo
 from ..algorithms.tautomers import Tautomers
 from ..algorithms.x3dom import X3domMolecule
 from ..exceptions import MappingError, ValenceError
-from ..periodictable import DynamicElement, Element, QueryElement, H
+from ..periodictable import DynamicElement, Element, FoldedGroup, QueryElement, H
 
 
 class MoleculeContainer(MoleculeStereo, Graph[Element, Bond], MoleculeIsomorphism, Aromatize, StandardizeMolecule,
@@ -829,10 +829,12 @@ class MoleculeContainer(MoleculeStereo, Graph[Element, Bond], MoleculeIsomorphis
         mol._atoms = atoms = {}
 
         for n, a, i in zip(mapping, atom_numbers, isotopes):
-            atoms[n] = a = object.__new__(Element.from_atomic_number(a))
-            a._Core__isotope = i
-            a._graph = ref(mol)
-            a._n = n
+            atoms[n] = object.__new__(Element.from_atomic_number(a))
+            if isinstance(atoms[n], FoldedGroup):
+                atoms[n]._number = a
+            atoms[n]._Core__isotope = i
+            atoms[n]._graph = ref(mol)
+            atoms[n]._n = n
         for b in bonds_flat:
             b._Bond__graph = ref(mol)
 
