@@ -19,6 +19,7 @@
 from CachedMethods import cached_args_method
 from collections import Counter, defaultdict
 from functools import cached_property
+from math import frexp, ldexp
 from numpy import uint, zeros
 from typing import Dict, Iterable, List, Optional, Tuple, Union
 from weakref import ref
@@ -732,9 +733,10 @@ class MoleculeContainer(MoleculeStereo, Graph[Element, Bond], MoleculeIsomorphis
 
             Big endian bytes order
             8 bit - 0x03 (format specification version)
-            Atom block 4 bytes (repeated):
+            Atom block 8 bytes (repeated):
             1 bit - atom entrance flag (always 1)
             15 bit - atomic number (<=32767)
+            32 bit - XY float16 coordinates
             3 bit - hydrogens (0-7). Note: 7 == None
             4 bit - charge (charge + 4. possible range -4 - 4)
             1 bit - radical state
@@ -860,6 +862,7 @@ class MoleculeContainer(MoleculeStereo, Graph[Element, Bond], MoleculeIsomorphis
         atoms_stereo = self._atoms_stereo
         allenes_stereo = self._allenes_stereo
         allenes_terminals = self._stereo_allenes_terminals
+        plane = self._plane
 
         cumulenes = {}
         ct_map = {}
@@ -881,6 +884,10 @@ class MoleculeContainer(MoleculeStereo, Graph[Element, Bond], MoleculeIsomorphis
             env = bonds[n]
 
             data.append((0x8000 | atoms[n].atomic_number).to_bytes(2, 'big'))
+
+            # 32 bits - XY coordinates
+            data.append(self._double_to_float16(plane[n][0]))
+            data.append(self._double_to_float16(plane[n][1]))
 
             # 3 bit - hydrogens (0-6, None) | 4 bit - charge | 1 bit - radical
             hcr = (charges[n] + 4) << 1 | radicals[n]
@@ -950,6 +957,32 @@ class MoleculeContainer(MoleculeStereo, Graph[Element, Bond], MoleculeIsomorphis
             data.append((s | len(tmp)).to_bytes(1, 'big'))
             data.extend(tmp)
         return b''.join(data)
+
+    def _double_to_float16(self, x: float) -> bytes:
+        if x == 0.0:
+            return bytes([0, 0])
+
+        sign = 0.0
+        if x < 0:
+            sign = 1
+            x = -x
+
+        f, e = frexp(x)
+        e -= 1
+        if f < 0.5 or f >= 1.0 or e >= 16 or e < -25:
+            return bytes([0, 0])  # ignore big values
+
+        f *= 2.0
+        if e < -14:
+            f = ldexp(f, 14 + e)
+            e = 0
+        else:
+            e += 15
+            f -= 1.0
+
+        f *= 1024.0
+        bits = int(f) | (e << 10) | (int(sign) << 15)
+        return bytes([(bits >> 8) & 0xFF, bits & 0xFF])
 
     def _augmented_substructure(self, atoms: Iterable[int], deep: int):
         atoms = set(atoms)

@@ -21,14 +21,16 @@ cimport cython
 from cpython.mem cimport PyMem_Malloc, PyMem_Free
 
 from chython.containers.bonds import Bond
+from chython.containers._unpack cimport double_from_bytes
 
 # Format specification::
 #
 # Big endian bytes order
 # 8 bit - 0x03 (format specification version)
-# Atom block 4 bytes (repeated):
+# Atom block 8 bytes (repeated):
 # 1 bit - atom entrance flag (always 1)
 # 15 bit - atomic number (<=32767)
+# 32 bit - XY float16 coordinates
 # 3 bit - hydrogens (0-7). Note: 7 == None
 # 4 bit - charge (charge + 4. possible range -4 - 4)
 # 1 bit - radical state
@@ -58,7 +60,6 @@ def unpack(const unsigned char[::1] data not None):
     cdef unsigned char a, b, i
     cdef unsigned short size, shift = 1, n, m, bond_shift, atoms_count, ct_count = 0, ct_shift = 0
 
-    cdef tuple py_xy
     cdef object bond, py_n, py_m
     cdef list py_mapping, py_atoms, py_isotopes, py_bonds_flat
     cdef dict py_charges, py_radicals, py_hydrogens, py_plane, py_bonds, py_ngb
@@ -67,6 +68,8 @@ def unpack(const unsigned char[::1] data not None):
     # allocate memory
     size = len(data)
     atoms = <unsigned short*> PyMem_Malloc(size / 3 * sizeof(unsigned short))
+    x_coord = <double*> PyMem_Malloc(size / 3 * sizeof(double))
+    y_coord = <double*> PyMem_Malloc(size / 3 * sizeof(double))
     charges = <char*> PyMem_Malloc(size / 3 * sizeof(char))
     radicals = <unsigned char*> PyMem_Malloc(size / 3 * sizeof(unsigned char))
     hydrogens = <unsigned char*> PyMem_Malloc(size / 3 * sizeof(unsigned char))
@@ -93,12 +96,17 @@ def unpack(const unsigned char[::1] data not None):
         b = data[shift + 1]
         atoms[n] = ((a & 0x7f) << 8) | b
 
-        a = data[shift + 2]
+        a, b = data[shift + 2], data[shift + 3]
+        x_coord[n] = double_from_bytes(a, b)
+        a, b = data[shift + 4], data[shift + 5]
+        y_coord[n] = double_from_bytes(a, b)
+
+        a = data[shift + 6]
         hydrogens[n] = a >> 5
         charges[n] = ((a >> 1) & 0x0f) - 4
         radicals[n] = a & 0x01
 
-        a = data[shift + 3]
+        a = data[shift + 7]
         bond_shift = a & 0x0f
         b = a >> 4
         if b == 0b0011:
@@ -110,7 +118,7 @@ def unpack(const unsigned char[::1] data not None):
         else:
             is_chiral[n] = 0
 
-        shift += 4
+        shift += 8
         neighbors[n] = 0
         for i in range(bond_shift):
             a, b = data[shift], data[shift + 1]
@@ -147,7 +155,6 @@ def unpack(const unsigned char[::1] data not None):
     py_cis_trans_stereo = {}
     py_bonds = {}
     py_bonds_flat = []
-    py_xy = (0., 0.)
 
     for n in range(atoms_count):
         seen[n] = 1
@@ -165,7 +172,7 @@ def unpack(const unsigned char[::1] data not None):
         else:
             py_hydrogens[py_n] = hydrogens[n]
 
-        py_plane[py_n] = py_xy
+        py_plane[py_n] = (x_coord[n], y_coord[n])
 
         if is_chiral[n]:
             if neighbors[n] == 2:  # allene
@@ -193,6 +200,8 @@ def unpack(const unsigned char[::1] data not None):
         ct_shift += 2
 
     PyMem_Free(atoms)
+    PyMem_Free(x_coord)
+    PyMem_Free(y_coord)
     PyMem_Free(charges)
     PyMem_Free(radicals)
     PyMem_Free(hydrogens)
