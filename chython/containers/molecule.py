@@ -19,6 +19,7 @@
 from CachedMethods import cached_args_method
 from collections import Counter, defaultdict
 from functools import cached_property
+from chython.periodictable.group_dynamic import FoldedGroup
 from numpy import uint, zeros
 from typing import Dict, Iterable, List, Optional, Tuple, Union
 from weakref import ref
@@ -759,6 +760,7 @@ class MoleculeContainer(MoleculeStereo, Graph[Element, Bond], MoleculeIsomorphis
         :param order: atom order in V3
         """
         from ._pack import pack
+        from ._pack_v4 import pack as pack_v4
 
         if check:
             bonds = self._bonds
@@ -773,6 +775,8 @@ class MoleculeContainer(MoleculeStereo, Graph[Element, Bond], MoleculeIsomorphis
             data = pack(self)
         elif version == 3:
             data = self._cpack(order, check)
+        elif version == 4:
+            data = pack_v4(self)
         else:
             raise ValueError('invalid specification version')
         if compressed:
@@ -800,6 +804,7 @@ class MoleculeContainer(MoleculeStereo, Graph[Element, Bond], MoleculeIsomorphis
         """
         from ._unpack import unpack
         from ._cpack import unpack as cpack
+        from ._unpack_v4 import unpack as v4_unpack
 
         if compressed:
             data = decompress(data)
@@ -809,6 +814,9 @@ class MoleculeContainer(MoleculeStereo, Graph[Element, Bond], MoleculeIsomorphis
         elif data[0] == 3:
             (mapping, atom_numbers, isotopes, charges, radicals, hydrogens, plane, bonds,
              atoms_stereo, allenes_stereo, cis_trans_stereo, pack_length, bonds_flat) = cpack(data)
+        elif data[0] == 4:
+            (mapping, atom_numbers, isotopes, charges, radicals, hydrogens, plane, bonds,
+             atoms_stereo, allenes_stereo, cis_trans_stereo, pack_length, bonds_flat) = v4_unpack(data)
         else:
             raise ValueError('invalid pack header')
 
@@ -829,10 +837,13 @@ class MoleculeContainer(MoleculeStereo, Graph[Element, Bond], MoleculeIsomorphis
         mol._atoms = atoms = {}
 
         for n, a, i in zip(mapping, atom_numbers, isotopes):
-            atoms[n] = a = object.__new__(Element.from_atomic_number(a))
-            a._Core__isotope = i
-            a._graph = ref(mol)
-            a._n = n
+            atoms[n] = object.__new__(Element.from_atomic_number(a))
+            # we have to set the atomic number explicitly for dynamic folded group
+            if isinstance(atoms[n], FoldedGroup):
+                atoms[n]._number = a
+            atoms[n]._Core__isotope = i
+            atoms[n]._graph = ref(mol)
+            atoms[n]._n = n
         for b in bonds_flat:
             b._Bond__graph = ref(mol)
 

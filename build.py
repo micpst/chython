@@ -57,6 +57,12 @@ extensions = [
     Extension('chython.containers._cpack',
               ['chython/containers/_cpack.pyx'],
               extra_compile_args=extra_compile_args),
+    Extension('chython.containers._pack_v4',
+              ['chython/containers/_pack_v4.pyx'],
+              extra_compile_args=extra_compile_args),
+    Extension('chython.containers._unpack_v4',
+              ['chython/containers/_unpack_v4.pyx'],
+              extra_compile_args=extra_compile_args),
     Extension('chython.files._xyz',
               ['chython/files/_xyz.pyx'],
               extra_compile_args=extra_compile_args)
