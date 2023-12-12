@@ -147,10 +147,7 @@ def pack(object molecule):
         p = <unsigned char *> &xy[n]  # XY
         atomic_number = py_atom.atomic_number
         py_nan_int = py_atom._Core__isotope  # direct access
-        if py_nan_int is None:
-            isotope = 0
-        else:
-            isotope = <short> py_nan_int - common_isotopes[atomic_number]
+        isotope = 0
 
         data[atoms_shift] = n >> 4  # 5-12b AN
         data[atoms_shift + 1] = n << 4 | len(py_ngb)  # 1-4b AN, 4b NC
@@ -227,16 +224,6 @@ def pack(object molecule):
     finally:
         PyMem_Free(data)
     return py_pack
-
-
-cdef short[119] common_isotopes
-common_isotopes[:] = [0, -15, -12, -9, -7, -5, -4, -2, 0, 3, 4, 7, 8, 11, 12, 15, 16, 19, 24, 23, 24, 29,
-                      32, 35, 36, 39, 40, 43, 43, 48, 49, 54, 57, 59, 63, 64, 68, 69, 72, 73, 75, 77,
-                      80, 82, 85, 87, 90, 92, 96, 99, 103, 106, 112, 111, 115, 117, 121, 123, 124, 125,
-                      128, 129, 134, 136, 141, 143, 147, 149, 151, 153, 157, 159, 162, 165, 168, 170,
-                      174, 176, 179, 181, 185, 188, 191, 193, 193, 194, 206, 207, 210, 211, 216, 215,
-                      222, 221, 228, 227, 231, 231, 235, 236, 241, 242, 243, 244, 245, 254, 253, 254,
-                      254, 262, 265, 265, 269, 262, 273, 273, 277, 281, 278]
 
 
 cdef void double_to_float16(double x, unsigned char* p):
