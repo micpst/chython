@@ -22,6 +22,7 @@ from cpython.mem cimport PyMem_Malloc, PyMem_Free
 from libc.math cimport ldexp
 
 from chython.containers.bonds import Bond
+from chython.containers._unpack cimport double_from_bytes
 
 # Format specification::
 #
@@ -119,10 +120,6 @@ def unpack(const unsigned char[::1] data not None):
                 is_all[i] = 0
 
         isotope = (a & 0x0f) << 1 | b >> 7
-        if isotope:
-            isotopes[i] = common_isotopes[atomic_number] + isotope
-        else:
-            isotopes[i] = 0
 
         atoms[i] = atomic_number = (b & 0x7f) << 8 | data[atoms_shift + 4]
 
@@ -301,36 +298,3 @@ def unpack(const unsigned char[::1] data not None):
     return (py_mapping, py_atoms, py_isotopes,
             py_charges, py_radicals, py_hydrogens, py_plane, py_bonds,
             py_atoms_stereo, py_allenes_stereo, py_cis_trans_stereo, size, py_bonds_flat)
-
-
-cdef short[119] common_isotopes
-common_isotopes[:] = [0, -15, -12, -9, -7, -5, -4, -2, 0, 3, 4, 7, 8, 11, 12, 15, 16, 19, 24, 23, 24, 29,
-                      32, 35, 36, 39, 40, 43, 43, 48, 49, 54, 57, 59, 63, 64, 68, 69, 72, 73, 75, 77,
-                      80, 82, 85, 87, 90, 92, 96, 99, 103, 106, 112, 111, 115, 117, 121, 123, 124, 125,
-                      128, 129, 134, 136, 141, 143, 147, 149, 151, 153, 157, 159, 162, 165, 168, 170,
-                      174, 176, 179, 181, 185, 188, 191, 193, 193, 194, 206, 207, 210, 211, 216, 215,
-                      222, 221, 228, 227, 231, 231, 235, 236, 241, 242, 243, 244, 245, 254, 253, 254,
-                      254, 262, 265, 265, 269, 262, 273, 273, 277, 281, 278]
-
-
-cdef double double_from_bytes(unsigned char a, unsigned char b):
-    cdef bint sign
-    cdef int e
-    cdef unsigned int f
-    cdef double x
-
-    sign = a >> 7
-    e = (a >> 2) & 0x1f
-    f = ((a & 0x03) << 8) | b
-
-    x = f / 1024.
-    if e:
-        x += 1.
-        e -= 15
-    else:
-        e = -14
-
-    x = ldexp(x, e)
-    if sign:
-        return -x
-    return x

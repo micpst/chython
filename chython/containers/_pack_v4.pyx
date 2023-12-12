@@ -19,6 +19,7 @@
 cimport cython
 from cpython.mem cimport PyMem_Malloc, PyMem_Free
 from libc.math cimport ldexp, frexp
+from chython.containers._pack cimport double_to_float16
 
 # Format specification::
 #
@@ -224,37 +225,3 @@ def pack(object molecule):
     finally:
         PyMem_Free(data)
     return py_pack
-
-
-cdef void double_to_float16(double x, unsigned char* p):
-    # adopted from cpython source code
-    cdef unsigned char sign
-    cdef int e
-    cdef double f
-    cdef unsigned short bits
-
-    if x == 0.:
-        p[0] = p[1] = 0
-        return
-
-    sign = x < 0.
-    if sign:
-        x = -x
-    f = frexp(x, &e)
-    e -= 1
-    if f < .5 or f >= 1. or e >= 16 or e < -25:
-        p[0] = p[1] = 0
-        return  # ignore big values
-
-    f *= 2.0
-    if e < -14:
-        f = ldexp(f, 14 + e)
-        e = 0
-    else:
-        e += 15
-        f -= 1.
-
-    f *= 1024.
-    bits = <unsigned short> f | (e << 10) | (sign << 15)
-    p[0] = bits >> 8
-    p[1] = bits
