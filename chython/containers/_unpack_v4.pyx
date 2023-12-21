@@ -119,7 +119,7 @@ def unpack(const unsigned char[::1] data not None):
             else:
                 is_all[i] = 0
 
-        isotope = (a & 0x0f) << 1 | b >> 7
+        isotopes[i] = 0
 
         atoms[i] = atomic_number = (b & 0x7f) << 8 | data[atoms_shift + 4]
 
